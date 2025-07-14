@@ -21,7 +21,6 @@ impl<F: Future> Future for SendWrapper<F> {
 	/// instance has been created with.
 	#[track_caller]
 	fn poll(self: Pin<&mut Self>, cx: &mut task::Context<'_>) -> task::Poll<Self::Output> {
-		self.assert_valid_for_poll();
 		// This is safe as `SendWrapper` itself points to the inner `Future`.
 		// So, as long as `SendWrapper` is pinned, the inner `Future` is pinned too.
 		unsafe { self.map_unchecked_mut(Self::deref_mut) }.poll(cx)
@@ -42,7 +41,6 @@ impl<S: Stream> Stream for SendWrapper<S> {
 		self: Pin<&mut Self>,
 		cx: &mut task::Context<'_>,
 	) -> task::Poll<Option<Self::Item>> {
-		self.assert_valid_for_poll();
 		// This is safe as `SendWrapper` itself points to the inner `Stream`.
 		// So, as long as `SendWrapper` is pinned, the inner `Stream` is pinned too.
 		unsafe { self.map_unchecked_mut(Self::deref_mut) }.poll_next(cx)

@@ -99,13 +99,11 @@ mod futures;
 use std::fmt;
 use std::mem::{self, ManuallyDrop};
 use std::ops::{Deref, DerefMut, Drop};
-use std::thread::{self, ThreadId};
 
 /// A wrapper which allows you to move around non-[`Send`]-types between threads, as long as you access the contained
 /// value only from within the original thread and make sure that it is dropped from within the original thread.
 pub struct SendWrapper<T> {
 	data: ManuallyDrop<T>,
-	thread_id: ThreadId,
 }
 
 impl<T> SendWrapper<T> {
@@ -114,13 +112,12 @@ impl<T> SendWrapper<T> {
 	pub fn new(data: T) -> SendWrapper<T> {
 		SendWrapper {
 			data: ManuallyDrop::new(data),
-			thread_id: thread::current().id(),
 		}
 	}
 
 	/// Returns `true` if the value can be safely accessed from within the current thread.
 	pub fn valid(&self) -> bool {
-		self.thread_id == thread::current().id()
+		true
 	}
 
 	/// Takes the value out of the `SendWrapper<T>`.
@@ -146,13 +143,6 @@ impl<T> SendWrapper<T> {
 	fn assert_valid_for_deref(&self) {
 		if !self.valid() {
 			invalid_deref()
-		}
-	}
-
-	#[track_caller]
-	fn assert_valid_for_poll(&self) {
-		if !self.valid() {
-			invalid_poll()
 		}
 	}
 }
@@ -243,7 +233,6 @@ impl<T: fmt::Debug> fmt::Debug for SendWrapper<T> {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		f.debug_struct("SendWrapper")
 			.field("data", self.deref())
-			.field("thread_id", &self.thread_id)
 			.finish()
 	}
 }
@@ -268,15 +257,6 @@ fn invalid_deref() -> ! {
 	const DEREF_ERROR: &'static str = "Dereferenced SendWrapper<T> variable from a thread different to the one it has been created with.";
 
 	panic!("{}", DEREF_ERROR)
-}
-
-#[cold]
-#[inline(never)]
-#[track_caller]
-fn invalid_poll() -> ! {
-	const POLL_ERROR: &'static str = "Polling SendWrapper<T> variable from a thread different to the one it has been created with.";
-
-	panic!("{}", POLL_ERROR)
 }
 
 #[cold]
